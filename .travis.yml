@@ -22,7 +22,6 @@ cache:
 jdk:
   - openjdk8
   - openjdk11
-  - openjdk14
   - openjdk-ea
   - oraclejdk11
 
@@ -32,10 +31,23 @@ matrix:
   include:
     - jdk: openjdk-ea
       env: JACOCO_SKIP=true
+    # Travis installs openjdk14 from the bellsoft apt repo, which no longer
+    # ships bellsoft-java14 on any dist; install the same Liberica JDK 14
+    # from BellSoft's tarball for this leg instead.
+    - name: openjdk14
+      jdk: openjdk11
+      before_install:
+        - curl -fsSL https://download.bell-sw.com/java/14.0.2+13/bellsoft-jdk14.0.2+13-linux-amd64.tar.gz | tar xz -C $HOME
+        - export JAVA_HOME=$HOME/jdk-14.0.2
+        - export PATH=$JAVA_HOME/bin:$PATH
+        - java -version
 
 # --no-transfer-progress requires Maven 3.6.1+. Otherwise use --batch-mode
 script:
   - mvn -V --no-transfer-progress
+  # print each skipped test with its @Disabled / assumption reason from the surefire reports
+  - |
+      awk '/<testcase /{tc=$0} /<skipped/{print "SKIPPED: " tc; print "   reason: " $0}' target/surefire-reports/TEST-*.xml
 
 after_success:
   - mvn -V --no-transfer-progress clean cobertura:cobertura coveralls:report -Ptravis-cobertura
